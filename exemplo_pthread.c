@@ -7,6 +7,9 @@ Lucas Pipa Cervera                  8094403
 Paulo Henrique Freitas Guimarães    9390361
 
 Exemplo de aplicação usando PThreads
+
+Implementação baseada no tutorial: 
+https://timmurphy.org/2010/05/04/pthreads-in-c-a-minimal-working-example/
 */
 
 
