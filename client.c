@@ -7,6 +7,9 @@ Lucas Pipa Cervera                  8094403
 Paulo Henrique Freitas Guimarães    9390361
 
 Aplicação client-side
+
+Implementação baseada no tutorial: 
+https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
 */
 
 
@@ -21,7 +24,7 @@ Aplicação client-side
 
 
 // Tamanho do buffer
-#define MAX 80
+#define MAX 256
 // Porta de conexão
 #define PORTA 8080
 #define SOCKET_ADDRESS struct sockaddr
@@ -71,7 +74,8 @@ int main() {
     // Inicia o socket
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if(socket_fd == -1) {
-        printf("Falha na criação do socket...\n");
+        perror("Falha na criação do socket");
+        printf("\n");
         exit(0);
     }
     else
@@ -86,7 +90,8 @@ int main() {
     server_address.sin_port = htons(PORTA);
     
     if(connect(socket_fd, (SOCKET_ADDRESS*)&server_address, sizeof(server_address)) != 0) {
-        printf("Conexão falhou...\n");
+        perror("Conexão falhou");
+        printf("\n");
         exit(0);
     }
     else
