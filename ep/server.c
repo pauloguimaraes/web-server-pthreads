@@ -7,8 +7,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-
-
 /**
  ** Variáveis
  **/
@@ -34,7 +32,8 @@ Mutex bloqueador;
 // Arranjo para controle de status das threads
 int indicador_uso_thread[100];
 
-
+// Arquivo de log
+FILE *log;
 
 /**
  ** Métodos 
@@ -56,10 +55,10 @@ void* trabalho_das_threads(void *argumento) {
  **/
 void* entra_em_trecho_critico(void* argumento) {
     pthread_mutex_lock(&bloqueador);
-    printf("Início do bloqueio...\n");
+    fprintf(log, "Início do bloqueio...\n");
 
     pthread_mutex_unlock(&bloqueador);
-    printf("Final do bloqueio.\n");
+    fprintf(log, "Final do bloqueio.\n");
     return NULL;
 }
 
@@ -70,7 +69,7 @@ void* entra_em_trecho_critico(void* argumento) {
  **/
 int encerra_servidor(int _socket) {
     close(_socket);
-    printf("Socket encerrado.\n");
+    fprintf(log, "Socket encerrado.\n");
 }
 
 /**
@@ -80,7 +79,7 @@ int encerra_servidor(int _socket) {
  **/
 int encerra_bloqueador(pthread_mutex_t bloq) {
     pthread_mutex_destroy(&bloq);
-    printf("Bloqueador encerrado.\n");
+    fprintf(log, "Bloqueador encerrado.\n");
 } 
 
 /**
@@ -99,7 +98,7 @@ int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in en
         printf("\n");
         return 1;
     } else {
-        printf("Socket criado.\n");
+        fprintf(log, "Socket criado.\n");
     }
 
     bzero(&endereco, sizeof(endereco));
@@ -113,7 +112,7 @@ int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in en
         printf("\n");
         return 1;
     } else {
-        printf("Servidor aguardando...\n");
+        fprintf(log, "Servidor aguardando...\n");
     }
 
     tamanho = sizeof(cliente);
@@ -124,7 +123,7 @@ int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in en
         return 1;
     }
     else {
-        printf("Conexão estabelecida");
+        fprintf(log, "Conexão estabelecida");
     }
 }
 
@@ -150,7 +149,7 @@ int inicia_threads(pthread_t threads[]) {
 
     int i = 0;
     while(i < qtd_threads) {
-        printf("Criou a thread %d\n", i);
+        fprintf(log, "Criou a thread %d\n", i);
         indicador_uso_thread[i] = AGUARDANDO;
 
         int erro = pthread_create(&(threads[i]), NULL, &trabalho_das_threads, NULL);
@@ -166,6 +165,15 @@ int inicia_threads(pthread_t threads[]) {
 }
 
 /**
+ ** Cria, abre e inicializa o arquivo de log.
+ **/
+void cria_arquivo_log(){
+	log = fopen("server_log_8094403_9390361.txt", "w");
+	fprintf(log, "Arquivo de log do Exercício Programa 1 de DSID - Professora Gisele\n");
+	fprintf(log, "Trabalho dos alunos Lucas Pipa Cervera (nusp 8094403) e Paulo Henrique Freitas Guimarães (nusp 9390361)\n");
+}
+
+/**
  ** Método principal da aplicação
  **/
 int main() {
@@ -173,7 +181,7 @@ int main() {
     struct sockaddr_in endereco, cliente;
 
     int resposta;
-
+    
     // Inicia a aplicação como servidor
     resposta = inicia_servidor(_socket, tamanho, conexao, endereco, cliente);
     if(resposta > 0)
@@ -193,4 +201,6 @@ int main() {
     encerra_bloqueador(&bloqueador);
     // Encerra o servidor
     encerra_servidor(_socket);
+    
+    fclose(log);
 }
