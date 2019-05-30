@@ -7,13 +7,11 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+
+
 /**
  ** Variáveis
  **/
-
-// Cria sinônimos
-#define Thread pthread_t;
-#define Mutex pthread_mutex_t;
 
 // Status das threads
 #define AGUARDANDO 0
@@ -26,14 +24,13 @@
 #define ENDERECO_SOCKET struct sockaddr
 
 // Threads e bloqueador
-Thread threads_filhas[100];
-Mutex bloqueador;
+pthread_t threads_filhas[100];
+pthread_mutex_t bloqueador;
 
 // Arranjo para controle de status das threads
 int indicador_uso_thread[100];
 
-// Arquivo de log
-FILE *log;
+
 
 /**
  ** Métodos 
@@ -55,10 +52,10 @@ void* trabalho_das_threads(void *argumento) {
  **/
 void* entra_em_trecho_critico(void* argumento) {
     pthread_mutex_lock(&bloqueador);
-    fprintf(log, "Início do bloqueio...\n");
+    printf("Início do bloqueio...\n");
 
     pthread_mutex_unlock(&bloqueador);
-    fprintf(log, "Final do bloqueio.\n");
+    printf("Final do bloqueio.\n");
     return NULL;
 }
 
@@ -69,7 +66,8 @@ void* entra_em_trecho_critico(void* argumento) {
  **/
 int encerra_servidor(int _socket) {
     close(_socket);
-    fprintf(log, "Socket encerrado.\n");
+    printf("Socket encerrado.\n");
+    return 0;
 }
 
 /**
@@ -79,7 +77,8 @@ int encerra_servidor(int _socket) {
  **/
 int encerra_bloqueador(pthread_mutex_t bloq) {
     pthread_mutex_destroy(&bloq);
-    fprintf(log, "Bloqueador encerrado.\n");
+    printf("Bloqueador encerrado.\n");
+    return 0;
 } 
 
 /**
@@ -98,7 +97,7 @@ int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in en
         printf("\n");
         return 1;
     } else {
-        fprintf(log, "Socket criado.\n");
+        printf("Socket criado.\n");
     }
 
     bzero(&endereco, sizeof(endereco));
@@ -112,8 +111,18 @@ int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in en
         printf("\n");
         return 1;
     } else {
-        fprintf(log, "Servidor aguardando...\n");
+        printf("Servidor aguardando...\n");
     }
+    
+    // Começa a escutar //adicionado por Pipa, n tenho ctz se tá certo e se deve ser assim
+    if((listen(socket_fd, 5)) != 0) {
+        perror("Falha ao iniciar a escuta");
+        printf("\n");
+        exit(0);
+    }
+    else
+        printf("Servidor ouvindo...\n");
+    
 
     tamanho = sizeof(cliente);
     conexao = accept(_socket, (ENDERECO_SOCKET*)&cliente, &tamanho);
@@ -123,8 +132,9 @@ int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in en
         return 1;
     }
     else {
-        fprintf(log, "Conexão estabelecida");
+        printf("Conexão estabelecida");
     }
+    return 0;
 }
 
 /**
@@ -137,6 +147,7 @@ int inicia_bloqueador(pthread_mutex_t bloq) {
         perror("Falha ao iniciar o mutex");
         return 1;
     }
+    return 0;
 }
 
 /**
@@ -149,7 +160,7 @@ int inicia_threads(pthread_t threads[]) {
 
     int i = 0;
     while(i < qtd_threads) {
-        fprintf(log, "Criou a thread %d\n", i);
+        printf("Criou a thread %d\n", i);
         indicador_uso_thread[i] = AGUARDANDO;
 
         int erro = pthread_create(&(threads[i]), NULL, &trabalho_das_threads, NULL);
@@ -162,15 +173,7 @@ int inicia_threads(pthread_t threads[]) {
 
         i++;
     }
-}
-
-/**
- ** Cria, abre e inicializa o arquivo de log.
- **/
-void cria_arquivo_log(){
-	log = fopen("server_log_8094403_9390361.txt", "w");
-	fprintf(log, "Arquivo de log do Exercício Programa 1 de DSID - Professora Gisele\n");
-	fprintf(log, "Trabalho dos alunos Lucas Pipa Cervera (nusp 8094403) e Paulo Henrique Freitas Guimarães (nusp 9390361)\n");
+    return 0;
 }
 
 /**
@@ -181,7 +184,7 @@ int main() {
     struct sockaddr_in endereco, cliente;
 
     int resposta;
-    
+
     // Inicia a aplicação como servidor
     resposta = inicia_servidor(_socket, tamanho, conexao, endereco, cliente);
     if(resposta > 0)
@@ -201,6 +204,4 @@ int main() {
     encerra_bloqueador(&bloqueador);
     // Encerra o servidor
     encerra_servidor(_socket);
-    
-    fclose(log);
-}
+} 
