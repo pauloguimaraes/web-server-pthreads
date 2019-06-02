@@ -1,0 +1,1 @@
+void envia_requisicao(int _socket);

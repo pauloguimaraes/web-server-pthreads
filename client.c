@@ -6,99 +6,94 @@ Autores:
 Lucas Pipa Cervera                  8094403
 Paulo Henrique Freitas Guimarães    9390361
 
-Aplicação client-side
-
-Implementação baseada no tutorial: 
-https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
+Implementação da aplicação cliente
 */
 
 
 
-// Importando módulos necessários
+// Incluindo bibliotecas necessárias
 #include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+
+#include "client.h"
+#include "util.h"
+
+// Constantes
+#define ENDERECO struct sockaddr
 
 
 
-// Tamanho do buffer
-#define MAX 256
-// Porta de conexão
-#define PORTA 8080
-#define SOCKET_ADDRESS struct sockaddr
-
+/*
+ * -------------
+ * -- Métodos --
+ * -------------
+ */
 
 /**
- ** Método responsável pela ação do cliente após estabelecer comunicação com o servidor.
+ ** Método que efetua as ações do cliente.
  **
- ** @param socket_fd: Socket de comunicação
+ ** @param _socket: Socket de comunicação.
  **/
-void acao(int socket_fd) {
-    char buffer[MAX];
+void envia_requisicao(int _socket) {
+    char buffer[TAMANHO_REQUISICAO];
     int n;
 
-    for(;;) {
-        // Zera o buffer
-        bzero(buffer, sizeof(buffer));
-        printf("Entre com o texto: ");
-        
-        // Lê o texto de entrada
-        n = 0;
-        while((buffer[n++] = getchar()) != '\n');
+    // Lê a entrada
+    bzero(buffer, sizeof(buffer));
+    printf("Entre com o texto: ");
 
-        // Escreve o texto no buffer e no socket
-        write(socket_fd, buffer, sizeof(buffer));
-        // Zera o buffer
-        bzero(buffer, sizeof(buffer));
+    n = 0;
+    while((buffer[n++] = getchar()) != '\n');
 
-        // Lê a mensagem escrita no socket (resposta do servidor)
-        read(socket_fd, buffer, sizeof(buffer));
-        printf("\tDo servidor: %s", buffer);
+    // Escreve no socket
+    write(_socket, buffer, sizeof(buffer));
+    bzero(buffer, sizeof(buffer));
 
-        if((strncmp(buffer, "exit", 4)) == 0) {
-            printf("Cliente saindo...\n");
-            break;
-        }
-    }
+    // Lê a resposta
+    read(_socket, buffer, sizeof(buffer));
+    // Apresenta
+    printf("\tDo servidor: %s", buffer);
+    printf("\n");
 }
 
 /**
- ** Método de execução da aplicação
+ ** Método principal da aplicação.
+ **
+ ** @param argc: Quantidade de argumentos.
+ ** @param argv: Argumentos enviados.
  **/
-int main() {
-    int socket_fd, connection_fd;
-    struct sockaddr_in server_address, cli;
+int main(int argc, char **argv) {
+    int _socket, i;
+    struct sockaddr_in _endereco, _client;
 
     // Inicia o socket
-    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if(socket_fd == -1) {
+    _socket = socket(AF_INET, SOCK_STREAM, 0);
+    if(_socket == -1) {
         perror("Falha na criação do socket");
         printf("\n");
-        exit(0);
+        exit(-1);
     }
     else
         printf("Socket criado...\n");
 
-    // Zera o endereço do servidor
-    bzero(&server_address, sizeof(server_address));
+    // Monta o endereço
+    bzero(&_endereco, sizeof(_endereco));
+    _endereco.sin_family = AF_INET;
+    _endereco.sin_addr.s_addr = inet_addr("127.0.0.1");
+    _endereco.sin_port = htons(8080);
 
-    // Atualiza informações do servidor
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server_address.sin_port = htons(PORTA);
-    
-    if(connect(socket_fd, (SOCKET_ADDRESS*)&server_address, sizeof(server_address)) != 0) {
+    // Conecta com o servidor
+    if(connect(_socket, (ENDERECO*)&_endereco, sizeof(_endereco)) != 0) {
         perror("Conexão falhou");
         printf("\n");
-        exit(0);
+        exit(-1);
     }
     else
         printf("Conectado ao servidor...\n");
 
-    // Efetua a ação
-    acao(socket_fd);
-    // Fecha o socket
-    close(socket_fd);
+    // Envia a requisição
+    envia_requisicao(_socket);
+    // Encerra o socket
+    close(_socket);
 }
