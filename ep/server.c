@@ -1,207 +1,116 @@
-// Importa as bibliotecas necessárias
+#include <ctype.h>
+#include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
+
+#include "pool_de_threads.h"
+
+#define ENDERECO struct sockaddr
+
+void envia_resposta(int _socket, char *resposta, int tamanho_resposta);
+char *processa_requisicao(char *requisicao, int *tam_resposta);
+void acao_da_thread(void *argumentos);
 
 
+int main(int argc, char **argv) {
+    int _socket, _conexao, tamanho;
+    struct sockaddr_in endereco;
 
-/**
- ** Variáveis
- **/
-
-// Status das threads
-#define AGUARDANDO 0
-#define EM_USO 1
-#define ERRO 2
-
-// Variáveis auxiliares
-#define MAX 256
-#define PORTA 8080
-#define ENDERECO_SOCKET struct sockaddr
-
-// Threads e bloqueador
-pthread_t threads_filhas[100];
-pthread_mutex_t bloqueador;
-
-// Arranjo para controle de status das threads
-int indicador_uso_thread[100];
-
-
-
-/**
- ** Métodos 
- **/
-
-/**
- ** Método que efetua o trabalho de uma thread.
- **
- ** @param argumento: possível argumento do método.
- **/
-void* trabalho_das_threads(void *argumento) {
-    return NULL;
-}
-
-/**
- ** Método que controle a zona crítica da aplicação.
- **
- ** @param argumento: possível argumento do método.
- **/
-void* entra_em_trecho_critico(void* argumento) {
-    pthread_mutex_lock(&bloqueador);
-    printf("Início do bloqueio...\n");
-
-    pthread_mutex_unlock(&bloqueador);
-    printf("Final do bloqueio.\n");
-    return NULL;
-}
-
-/**
- ** Método que encerra a atividade do servidor.
- ** 
- ** @param _socket: Socket que será encerrado.
- **/
-int encerra_servidor(int _socket) {
-    close(_socket);
-    printf("Socket encerrado.\n");
-    return 0;
-}
-
-/**
- ** Método que encerra um bloqueador.
- ** 
- ** @param bloq: Bloqueador que está sendo encerrado.
- **/
-int encerra_bloqueador(pthread_mutex_t bloq) {
-    pthread_mutex_destroy(&bloq);
-    printf("Bloqueador encerrado.\n");
-    return 0;
-} 
-
-/**
- ** Método que inicia os trabalhos do servidor.
- ** 
- ** @param _socket: Socket para troca de mensagens com o cliente.
- ** @param tamanho: tamanho das mensagens que serão trocadas.
- ** @param conexao: Definição de conexão estabelecida com o cliente.
- ** @param endereco: Endereço do servidor
- ** @param cliente: Cliente que estamos nos comunicando.
- **/
-int inicia_servidor(int _socket, int tamanho, int conexao, struct sockaddr_in endereco, struct sockaddr_in cliente) {
     _socket = socket(AF_INET, SOCK_STREAM, 0);
     if(_socket == -1) {
         perror("Falha na criação do socket");
         printf("\n");
-        return 1;
-    } else {
-        printf("Socket criado.\n");
-    }
-
-    bzero(&endereco, sizeof(endereco));
-
-    endereco.sin_family = AF_INET;
-    endereco.sin_addr.s_addr = htonl(INADDR_ANY);
-    endereco.sin_port = htons(PORTA);
-
-    if((bind(_socket, (ENDERECO_SOCKET*) &endereco, sizeof(endereco))) != 0) {
-        perror("Falha no bind do socket");
-        printf("\n");
-        return 1;
-    } else {
-        printf("Servidor aguardando...\n");
-    }
-    
-    // Começa a escutar //adicionado por Pipa, n tenho ctz se tá certo e se deve ser assim
-    if((listen(socket_fd, 5)) != 0) {
-        perror("Falha ao iniciar a escuta");
-        printf("\n");
-        exit(0);
+        exit(-1);
     }
     else
-        printf("Servidor ouvindo...\n");
-    
+        printf("Socket criado.\n");
 
-    tamanho = sizeof(cliente);
-    conexao = accept(_socket, (ENDERECO_SOCKET*)&cliente, &tamanho);
-    if(conexao < 0) {
-        perror("Falha na conexão");
+    bzero(&endereco, sizeof(endereco));
+    endereco.sin_family = AF_INET;
+    endereco.sin_addr.s_addr = htonl(INADDR_ANY);
+    endereco.sin_port = htons(8080);
+
+    if((bind(_socket, (ENDERECO*)&endereco, sizeof(endereco))) != 0) {
+        perror("Falha no bind");
         printf("\n");
-        return 1;
+        exit(-1);
     }
-    else {
-        printf("Conexão estabelecida");
+    else
+        printf("Servidor pronto...\n");
+    
+    if((listen(_socket, 5)) != 0) {
+        perror("Falha ao iniciar a escuta");
+        printf("\n");
+        exit(-1);
     }
-    return 0;
-}
 
-/**
- ** Método que inicia um bloqueador.
- ** 
- ** @param bloq: Bloqueador que está sendo iniciado.
- **/
-int inicia_bloqueador(pthread_mutex_t bloq) {
-    if(pthread_mutex_init(&bloq, NULL) != 0) {
-        perror("Falha ao iniciar o mutex");
-        return 1;
-    }
-    return 0;
-}
+    pool_de_threads _pool;
+    _pool = cria_pool_de_threads(100);
 
-/**
- ** Inicia as threads.
- **
- ** @param threads: Arranjo de threads que serão iniciadas 
- **/
-int inicia_threads(pthread_t threads[]) {
-    int qtd_threads = sizeof(threads) / sizeof(threads[0]);
+    for(;;) {
+        printf("laço principal\n");
+        struct sockaddr_in _client;
+        int tamanho = sizeof(_client);
 
-    int i = 0;
-    while(i < qtd_threads) {
-        printf("Criou a thread %d\n", i);
-        indicador_uso_thread[i] = AGUARDANDO;
-
-        int erro = pthread_create(&(threads[i]), NULL, &trabalho_das_threads, NULL);
-
-        if(erro != 0) {
-            perror("Falha ao criar a thread");
+        _conexao = accept(_socket, (ENDERECO*)&_client, &tamanho);
+        if(_conexao < 0) {
+            perror("Falha na aceitação do servidor");
             printf("\n");
-            return 1;
+            continue;
         }
-
-        i++;
+        else
+            printf("Conexão com cliente estabelecida\n");
+        
+        enviar(_pool, acao_da_thread, (void *)&_conexao);
     }
-    return 0;
 }
 
-/**
- ** Método principal da aplicação
- **/
-int main() {
-    int _socket, conexao, tamanho;
-    struct sockaddr_in endereco, cliente;
+void envia_resposta(int _socket, char *resposta, int tamanho_resposta) {
+    write(_socket, resposta, tamanho_resposta);
+}
 
-    int resposta;
+char *processa_requisicao(char *requisicao, int *tam_resposta) {
+    char *resposta = (char *)malloc(1000 * sizeof(char));
+    int i, j;
 
-    // Inicia a aplicação como servidor
-    resposta = inicia_servidor(_socket, tamanho, conexao, endereco, cliente);
-    if(resposta > 0)
-        exit(1);
+    for(i = 0; i<1000; i++)
+        resposta[i] = requisicao[i%1000];
+    
+    printf("deu ruim no laço\n");
+    resposta = "Funcionou, rapaz";
+    
+    sleep(15);
 
-    // Inicia o bloqueador
-    resposta = inicia_bloqueador(bloqueador);
-    if(resposta > 0)
-        exit(1);
+    *tam_resposta = 1000;
+    printf("não deu ruim no laço\n");
+    return resposta;
+}
 
-    // Inicia as threads
-    resposta = inicia_threads(threads_filhas);
-    if(resposta > 0)
-        exit(1);
+void acao_da_thread(void *argumentos) {
+    char requisicao[1000];
+    char *resposta = NULL;
+    int _socket = *((int *) argumentos);
 
-    // Encerra o bloqueador
-    encerra_bloqueador(&bloqueador);
-    // Encerra o servidor
-    encerra_servidor(_socket);
-} 
+    bzero(requisicao, sizeof(requisicao));
+    printf("Aqui entrou\n");
+
+    read(_socket, requisicao, sizeof(requisicao));
+    if(requisicao != NULL) {
+        int tamanho_resp;
+
+        printf("a lelek\n");
+        resposta = processa_requisicao(requisicao, &tamanho_resp);
+        if(resposta != NULL)
+            envia_resposta(_socket, resposta, tamanho_resp);
+    }
+    bzero(requisicao, 1000);
+    resposta = NULL;
+    
+    return;
+}
